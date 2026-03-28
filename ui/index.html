@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SecureChat</title>
+<script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tweetnacl-util@0.15.1/nacl-util.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="logo">
+    <div class="logo-mark">End-to-End Encrypted Messaging</div>
+    <h1>SecureChat</h1>
+    <p>
+    Messages are encrypted on your device before being sent.<br>
+    Your private relay server only forwards encrypted data and cannot read your messages.
+  </p>
+  </div>
+
+  <div class="login-card">
+    <div id="login-error" style="display: none; background: #ff444422; border: 1px solid var(--danger); border-radius: var(--radius); padding: 10px; color: var(--danger); font-family: var(--mono); font-size: 12px; margin-bottom: 12px;"></div>
+    <div class="field">
+      <label>Your nickname</label>
+      <input type="text" id="nickname-input" placeholder="e.g. alice" maxlength="32" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label>Your private Signal Server url</label>
+      <input type="text" id="server-input" placeholder="ws://localhost:8080" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label>Invite Token (admin provided)</label>
+      <input type="text" id="token-input" placeholder="e.g. my-secret-room" autocomplete="off" />
+    </div>
+    <button class="btn-primary" id="connect-btn">Generate keys &amp; connect</button>
+    <p class="security-note">
+      A fresh <span>NaCl keypair</span> is generated locally in your browser.<br>
+      Your private key never leaves this tab.
+    </p>
+  </div>
+</div>
+
+<!-- CHAT SCREEN -->
+<div id="chat-screen">
+  <div id="error-bar">Connection lost. Reconnecting…</div>
+
+  <div class="chat-header">
+    <div class="chat-header-left">
+      <div class="status-dot" id="status-dot"></div>
+      <div>
+        <div class="header-title">SecureChat</div>
+        <div class="header-sub" id="my-key-display">Public key: —</div>
+      </div>
+    </div>
+    <div class="peer-count">
+      <b id="peer-count-num">0</b> online
+    </div>
+  </div>
+
+  <div class="chat-body">
+    <div class="sidebar">
+      <div class="sidebar-header">Peers</div>
+      <div id="peer-list">
+        <div class="no-peers">Waiting for<br>others to join…</div>
+      </div>
+    </div>
+
+    <div class="messages-area">
+      <div class="channel-label">messages visible to all connected peers</div>
+      <div id="messages"></div>
+      <div class="input-area">
+        <textarea id="msg-input" placeholder="Type a message… (Enter to send)" rows="1"></textarea>
+        <button class="send-btn" id="send-btn" disabled title="Send">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="script.js">
+
+</script>
+</body>
+</html>
