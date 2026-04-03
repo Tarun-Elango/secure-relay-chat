@@ -7,7 +7,11 @@
   <groupId>com.udpholepunch</groupId>
   <artifactId>relay-server</artifactId>
   <version>1.0.0</version>
-
+  <!-- remove java version when working locally -->
+<properties>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+  </properties>
   <dependencies>
     <dependency>
       <groupId>org.java-websocket</groupId>
