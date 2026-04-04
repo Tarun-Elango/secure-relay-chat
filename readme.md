@@ -16,8 +16,6 @@ A minimal, end-to-end encrypted group chat using a dumb relay server. Clients se
 
 The goal is to demonstrate a simple group chat where clients handle all encryption locally and do not rely on external services. This ensures all the chat data remains private between participants.
 
-Here's the restructured version with the same content, clearer headings, and the admin/client steps properly separated:
-
 ---
 
 ## Setup & Usage Guide
@@ -135,21 +133,20 @@ Clients generate ephemeral X25519 keypairs locally using `tweetnacl` (`box`) —
 ---
 
 ## Things to look out for when using.
-- Compare fingerprints in the user interface with out-of-band verification methods to confirm authenticity of the users you're communicating with.
+- Compare public keys in the user interface with out-of-band verification methods to confirm authenticity of the users you're communicating with.
 - Ensure the relay runs on HTTPS/WSS; this is the operator's responsibility.
 - The relay maintains user connections and stores associated public keys - something to be mindful of.
 - Adjust server logs according to privacy requirements.
-
 - Forward secrecy note: As long as clients and the server are not compromised, this provides forward secrecy — past sessions remain private; compromise during an active session still exposes that session.
 - There is a message limit of 64 KB.
-- Update max users accordingly. 
+- Update max users accordingly in relay.java.
 
 
 ---
 
 ## Future improvements
 
-1. **Persist keys**: Use IndexedDB so identity survives refresh. will require forward secrecy changes to avoid key reuse issues.
+1. **Persist keys**: Use IndexedDB so identity survives refresh. Will require forward secrecy changes to avoid key reuse issues.
 2. **Logging**: Avoid printing `INVITE_TOKEN` to public logs; show it only to the admin securely.
 3. **Password protection**: Add a password on the login page as an additional security measure.
 4. **Group encryption**: Implement a more efficient group encryption scheme (e.g. Signal's Sender Keys) to avoid encrypting separately for each peer.
