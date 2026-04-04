@@ -147,7 +147,7 @@ Clients generate ephemeral X25519 keypairs locally using `tweetnacl` (`box`) —
 
 ## Future improvements
 
-1. **Persist keys**: Use IndexedDB so identity survives refresh. Will require forward secrecy changes to avoid key reuse issues.
+1. **Persist keys**: Use IndexedDB so identity survives refreshon on the browser.
 2. **Logging**: Avoid printing `INVITE_TOKEN` to public logs; show it only to the admin securely.
 3. **Password protection**: Add a password on the login page as an additional security measure.
 4. **Group encryption**: Implement a more efficient group encryption scheme (e.g. Signal's Sender Keys) to avoid encrypting separately for each peer.
