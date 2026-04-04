@@ -1,9 +1,3 @@
-/**
-npx serve .
- or:
-python3 -m http.server 3000
-*/
-
 // ─────────────────────────────────────────────
 // CRYPTO UTILITIES (NaCl box — X25519 + XSalsa20-Poly1305)
 // ─────────────────────────────────────────────
@@ -274,8 +268,7 @@ function handleServerMessage(msg) {
 function sendMessage(text) {
   if (!text.trim() || !ws || ws.readyState !== WebSocket.OPEN) return;
 
-  // For simplicity in PoC: encrypt once per peer and send individually
-  // In production: use a shared group key or Signal's sender key
+  // For simplicity encrypt once per peer and send individually
   for (const [peerId, peer] of peers.entries()) {
     const { ciphertext, nonce } = encryptForPeer(text, peer.publicKey, myKeyPair.secretKey);
     ws.send(JSON.stringify({
@@ -300,10 +293,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const msgInput = document.getElementById('msg-input');
   const sendBtn = document.getElementById('send-btn');
   const tokenInput = document.getElementById('token-input');
-
-  // Default server URL
-  // serverInput.value = `ws://${location.hostname}:8080`;
-  
 
   connectBtn.addEventListener('click', () => {
     const nickname = nicknameInput.value.trim();
