@@ -15,6 +15,7 @@ public class relay extends WebSocketServer {
 
     public static final int port = 8080;
     private final Gson gson = new Gson();
+    private final SecureRandom secureRandom = new SecureRandom();
 
     private final String INVITE_TOKEN = generateId(); // printed once at startup
     private final int MAX_USERS = 5;
@@ -24,7 +25,7 @@ public class relay extends WebSocketServer {
     private final Map<String, ClientInfo> clientInfos = new ConcurrentHashMap<>();
     private final Map<String, WebSocket> clients = new ConcurrentHashMap<>();
 
-    private final Map<String, Long> lastMessageTime = new ConcurrentHashMap<>();
+    private final Map<String, Long> lastMessageTime = new ConcurrentHashMap<>(); // used for rate limiting
     private static final long MIN_INTERVAL_MS = 200; // max 5 msg/sec
 
     public relay() {
@@ -38,7 +39,7 @@ public class relay extends WebSocketServer {
     @Override // this is where we handle incoming messages
     public void onMessage(WebSocket conn, String raw){
         if (raw.length() > 65_536) { // 64KB max
-            conn.send("{\"type\":\"error\",\"msg\":\"Message too large\"}");
+            safeSend(conn, "{\"type\":\"error\",\"msg\":\"Message too large\"}");
             return;
         }
         try{
@@ -64,15 +65,22 @@ public class relay extends WebSocketServer {
 
         // 1. token check 
         String token = msg.has("token") ? msg.get("token").getAsString() : "";
-        if (!token.equals(INVITE_TOKEN)) {  
-            conn.send("{\"type\":\"error\",\"msg\":\"Invalid invite token\"}");
+        if (!token.equals(INVITE_TOKEN)) {
+            safeSend(conn, "{\"type\":\"error\",\"msg\":\"Invalid invite token\"}");
             conn.close();
             return;
         }
 
-        // 2. capacity check
+        // 2. validate required fields
+        if (!msg.has("publicKey") || msg.get("publicKey").getAsString().isBlank()) {
+            safeSend(conn, "{\"type\":\"error\",\"msg\":\"Missing publicKey\"}");
+            conn.close();
+            return;
+        }
+
+        // 3. capacity check
         if (clients.size() >= MAX_USERS) {
-            conn.send("{\"type\":\"error\",\"msg\":\"Server full\"}");
+            safeSend(conn, "{\"type\":\"error\",\"msg\":\"Server full\"}");
             conn.close();
             return;
         }
@@ -85,9 +93,12 @@ public class relay extends WebSocketServer {
         String clientId = generateId();
         String publicKey = msg.get("publicKey").getAsString();
 
-        // 3. First joiner becomes admin (add after clientId is assigned)
-        boolean isAdmin = (adminId == null);
-        if (isAdmin) adminId = clientId; // add as admin if first joiner
+        // 4. First joiner becomes admin — synchronized to prevent race condition
+        boolean isAdmin;
+        synchronized (this) {
+            isAdmin = (adminId == null);
+            if (isAdmin) adminId = clientId;
+        }
 
         ClientInfo info = new ClientInfo(clientId, nickname, publicKey);
         clients.put(clientId, conn); // key is clientId, value is WebSocket connection
@@ -114,7 +125,7 @@ public class relay extends WebSocketServer {
             }
         }
         rosterMsg.add("clients", rooster);
-        conn.send(gson.toJson(rosterMsg));
+        safeSend(conn, gson.toJson(rosterMsg));
         
         // 2. tell everyone else about the new client
         JsonObject joinMsg = new JsonObject();
@@ -146,6 +157,9 @@ public class relay extends WebSocketServer {
         ClientInfo sender = clientInfos.get(senderId);
         if (sender == null) return;
 
+        // validate required message fields
+        if (!msg.has("ciphertext") || !msg.has("nonce")) return;
+
         // Rate limiting: if the sender has sent a message in the last MIN_INTERVAL_MS milliseconds, ignore this message to prevent spam
         long now = System.currentTimeMillis();
         long last = lastMessageTime.getOrDefault(senderId, 0L);
@@ -169,7 +183,7 @@ public class relay extends WebSocketServer {
         if (!targetId.equals("all")) {
             WebSocket targetWs = clients.get(targetId);
             if (targetWs != null && targetWs.isOpen()) {
-                targetWs.send(gson.toJson(payload));
+                safeSend(targetWs, gson.toJson(payload));
             }
         } else {
             broadcastMsg(gson.toJson(payload), conn);
@@ -190,16 +204,34 @@ public class relay extends WebSocketServer {
         if (clientId != null) {
             clients.remove(clientId);
             ClientInfo info = clientInfos.remove(clientId);
+            lastMessageTime.remove(clientId); // clean up on disconnect
             if (info != null) {
                 System.out.println("[-] Client disconnected: " + info.nickname + " (" + info.id + ")");
-
 
                 // Notify others that this client has left
                 JsonObject leaveMsg = new JsonObject();
                 leaveMsg.addProperty("type", "peer_left");
                 leaveMsg.addProperty("id", info.id);
                 leaveMsg.addProperty("nickname", info.nickname);
-                broadcastMsg(gson.toJson(leaveMsg), null);// convert the leave message to JSON and broadcast to all clients
+                broadcastMsg(gson.toJson(leaveMsg), null);
+
+                // Admin re-election: if admin left, assign to next available client
+                synchronized (this) {
+                    if (clientId.equals(adminId)) {
+                        adminId = null;
+                        if (!clientInfos.isEmpty()) {
+                            String newAdminId = clientInfos.keySet().iterator().next(); // pick one id from the remaining clients
+                            adminId = newAdminId;
+                            ClientInfo newAdmin = clientInfos.get(newAdminId);
+                            JsonObject adminMsg = new JsonObject();
+                            adminMsg.addProperty("type", "new_admin");
+                            adminMsg.addProperty("id", newAdminId);
+                            adminMsg.addProperty("nickname", newAdmin.nickname);
+                            broadcastMsg(gson.toJson(adminMsg), null); // send to everyone
+                            System.out.println("[~] New admin: " + newAdmin.nickname + " (" + newAdminId + ")");
+                        }
+                    }
+                }
             }
         } else {
             System.out.println("[-] Unknown client disconnected");
@@ -221,18 +253,26 @@ public class relay extends WebSocketServer {
         System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
+    // function to broadcast a message to all clients except the sender
     private void broadcastMsg(String text, WebSocket exclude) {
-        // loops through all clients and sends the message, except for the excluded one (usually the sender)
         for (WebSocket client : clients.values()) {
             if (client != exclude) {
-                client.send(text);
+                safeSend(client, text);
             }
+        }
+    }
+
+    private void safeSend(WebSocket conn, String message) {
+        try {
+            conn.send(message);
+        } catch (Exception e) {
+            System.out.println("[-] Failed to send message: " + e.getMessage());
         }
     }
 
     private String generateId(){
         byte[] bytes = new byte[8];
-        new SecureRandom().nextBytes(bytes);
+        secureRandom.nextBytes(bytes);
         StringBuilder sb = new StringBuilder();
         for(byte b : bytes){// for each byte, convert to hex and append to the string builder
             sb.append(String.format("%02x", b)); 

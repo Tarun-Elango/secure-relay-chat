@@ -1,3 +1,9 @@
+/**
+npx serve .
+ or:
+python3 -m http.server 3000
+*/
+
 // ─────────────────────────────────────────────
 // CRYPTO UTILITIES (NaCl box — X25519 + XSalsa20-Poly1305)
 // ─────────────────────────────────────────────
@@ -219,6 +225,17 @@ function handleServerMessage(msg) {
       peers.delete(msg.id);
       updatePeerList();
       addMessage({ text: `${msg.nickname} left`, isSystem: true });
+      break;
+    }
+
+    case 'new_admin': {
+      // update our local peer list to mark the new admin 
+      for (const [id, peer] of peers.entries()) {
+        peer.isAdmin = (id === msg.id);
+      }
+      if (msg.id === myId) myIsAdmin = true;
+      updatePeerList();
+      addMessage({ text: `${msg.nickname} is now admin`, isSystem: true });
       break;
     }
 
