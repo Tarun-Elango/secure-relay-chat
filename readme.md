@@ -37,7 +37,7 @@ flowchart LR
 3. Ensure Java (JDK) and Maven are installed.
 4. Inside `relay.java`, adjust `MAX_USERS` if needed (default is 5).
 5. Build the server: `mvn clean package`
-6. Start the server: `java -jar java-relay-server/target/relay-server-1.0-SNAPSHOT.jar`
+6. Start the server: `java -jar target/relay-server-1.0.0.jar`
 7. Share the invite token printed in the server logs with participants.
 
 ---
@@ -140,7 +140,8 @@ Clients generate ephemeral X25519 keypairs locally using `tweetnacl` (`box`) —
 - Forward secrecy note: As long as clients and the server are not compromised, this provides forward secrecy — past sessions remain private; compromise during an active session still exposes that session.
 - There is a message limit of 64 KB.
 - Update max users accordingly in relay.java.
-
+- The way this is currently set up, each relay server will simulate one chat room. 
+- If you want to reset the invite token, simply restart the relay server. This will disconnect all clients and generate a new token for the next session.
 
 ---
 
